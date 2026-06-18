@@ -3,25 +3,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Inbox, Search, SlidersHorizontal } from "lucide-react";
-import { supabase } from "@/libs/supabase";
 import TaskCard from "@/components/molecules/TaskCard";
 import { getPriorityClass } from "@/utils/priorityHelpers";
 import { getCategory } from "@/utils/taskHelpers";
 import TTask from "@/components/types/TTask";
 import { TCategoryResult, TResult, TResultLabels } from "./types/TResult";
 import { routeUrl } from "@/utils/URouteUrl";
+import { fetchAllTasks } from "@/services/taskService";
 
-function TabButton({
-  label,
-  count,
-  active,
-  onClick,
-}: {
+interface TabButtonProps {
   label: string;
   count?: number;
   active: boolean;
   onClick: () => void;
-}) {
+}
+
+function TabButton({ label, count, active, onClick }: TabButtonProps) {
   return (
     <button
       onClick={onClick}
@@ -68,31 +65,35 @@ export default function Tasks() {
 
   useEffect(() => {
     let alive = true;
-    const load = async () => {
+
+    const load = async (): Promise<void> => {
       setLoading(true);
       setError("");
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
-      if (!user) return;
 
-      const { data, error } = await supabase
-        .from("view_priority_tasks")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("total_priority_score", { ascending: false, nullsFirst: false });
+      const result = await fetchAllTasks({
+        status: activeTab !== "semua" ? activeTab : undefined,
+        priority:
+          priorityFilter !== "Semua Prioritas" ? priorityFilter : undefined,
+        search: search || undefined,
+      });
 
       if (!alive) return;
-      if (error) {
-        setError(error.message || "Gagal mengambil data");
+
+      if (result.success && result.data) {
+        setRows(result.data as TTask[]);
+      } else {
+        setError(result.message || "Gagal mengambil data");
         setRows([]);
-      } else setRows(data || []);
+      }
+
       setLoading(false);
     };
+
     load();
     return () => {
       alive = false;
     };
-  }, []);
+  }, [activeTab, priorityFilter, search]);
 
   const counts: TResult = useMemo(() => {
     const result: TResult = {
@@ -213,9 +214,7 @@ export default function Tasks() {
               key={row.id}
               row={row}
               mode="kegiatan"
-              onClick={() =>
-                router.push(`${routeUrl.task_details}/${row.id}`)
-              }
+              onClick={() => router.push(`${routeUrl.task_details}/${row.id}`)}
             />
           ))}
       </div>

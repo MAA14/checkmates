@@ -4,15 +4,7 @@
 // React hooks untuk state management (useState, useEffect) dan optimization (useMemo)
 import React, { useEffect, useMemo, useState } from "react";
 
-// Supabase client untuk akses database dan autentikasi
-import { supabase } from "@/libs/supabase";
-
 // Recharts components untuk membuat berbagai jenis chart (Bar, Pie, Line)
-// - BarChart, Bar: Chart batang untuk kegiatan per bulan
-// - PieChart, Pie: Chart pie untuk distribusi prioritas
-// - LineChart, Line: Chart garis untuk tren kinerja
-// - ResponsiveContainer: Container yang responsive terhadap ukuran layar
-// - Tooltip, Legend, Cell: Komponen utility untuk customization chart
 import {
   BarChart,
   Bar,
@@ -33,6 +25,7 @@ import {
 import { getPriorityClass } from "@/utils/priorityHelpers";
 import TTask from "@/components/types/TTask";
 import TStats from "./types/TStats";
+import { fetchAnalyticsData } from "@/services/taskService";
 
 // ===== CONSTANTS =====
 
@@ -305,60 +298,30 @@ export default function DashboardAnalitik() {
   useEffect(() => {
     let alive = true;
 
-    const load = async () => {
+    const load = async (): Promise<void> => {
       setLoading(true);
       setError("");
 
-      // STEP 1: Cek user authentication
-      // Jika tidak ada user (belum login), stop fetch dan tampilkan empty
-      const { data: auth } = await supabase.auth.getUser();
-      const user = auth?.user;
-      if (!user) {
-        if (alive) setLoading(false);
-        return;
-      }
-
-      // STEP 2: Jalankan 2 request paralel (Promise.all)
-      // Ini lebih efisien daripada sequential requests
-      const [tasksResult, statsResult] = await Promise.all([
-        // REQUEST A: Ambil raw task data dari database
-        // Digunakan untuk: Bar Chart, Pie Chart, Line Chart
-        supabase.from("view_priority_tasks").select("*").eq("user_id", user.id),
-
-        // REQUEST B: Jalankan PostgreSQL RPC function untuk statistik
-        // Function calculate: Mean, Median, Modus, Variance, Std Dev, Range, Min, Max
-        // Jauh lebih efisien daripada menghitung di JavaScript frontend
-        supabase.rpc("get_user_task_stats", { authenticated_user_id: user.id }),
-      ]);
+      const result = await fetchAnalyticsData();
 
       if (!alive) return;
 
-      // STEP 3: Handle error dari Request A
-      if (tasksResult.error) {
-        setError(tasksResult.error.message);
-        setLoading(false);
-        return;
+      if (result.success && result.data) {
+        const data = result.data as {
+          tasks: TTask[];
+          stats: TStats;
+        };
+        setRows((data.tasks || []) as TTask[]);
+        setStats(data.stats as TStats);
+      } else {
+        setError(result.message || "Gagal mengambil data analytics");
       }
-
-      // STEP 3b: Handle error dari Request B
-      if (statsResult.error) {
-        setError(statsResult.error.message);
-        setLoading(false);
-        return;
-      }
-
-      // STEP 4: Simpan hasil ke state
-      // rows = array kegiatan untuk chart
-      setRows(tasksResult.data || []);
-
-      // stats = object statistik dari RPC (ambil elemen pertama array)
-      // Jika kosong, set ke null agar guard menampilkan empty state
-      setStats(statsResult.data?.[0] ?? null);
 
       setLoading(false);
     };
 
     load();
+
     return () => {
       alive = false;
     };
