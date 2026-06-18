@@ -49,7 +49,11 @@ function countUnread(rows: TTask[]) {
   return count;
 }
 
-export default function DashboardLayout() {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [userName, setUserName] = useState("User");
@@ -103,29 +107,29 @@ export default function DashboardLayout() {
 
   const navItems = [
     {
-      to: "/dashboard",
+      to: routeUrl.dashboard,
       label: "Dashboard",
       icon: ChessIcons("king"),
       end: true,
     },
     {
-      to: "/dashboard/input",
+      to: routeUrl.task_create,
       label: "Input Kegiatan",
       icon: ChessIcons("pawn"),
     },
     {
-      to: "/dashboard/semua",
+      to: routeUrl.tasks,
       label: "Semua Kegiatan",
       icon: ChessIcons("rook"),
     },
     {
-      to: "/dashboard/notifikasi",
+      to: routeUrl.notification,
       label: "Notifikasi",
       icon: ChessIcons("knight"),
       badge: unreadCount,
     },
     {
-      to: "/dashboard/analitik",
+      to: routeUrl.analytics,
       label: "Dashboard Analitik",
       icon: ChessIcons("queen"),
     },
@@ -223,6 +227,8 @@ export default function DashboardLayout() {
             </div>
           </div>
         </header>
+
+        <main>{children}</main>
       </div>
     </div>
   );

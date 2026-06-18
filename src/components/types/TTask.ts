@@ -5,4 +5,5 @@ export default interface TTask {
   status: "selesai" | "belum_selesai" | "terlambat";
   created_at: string;
   total_priority_score: number;
+  deskripsi?: string;
 }

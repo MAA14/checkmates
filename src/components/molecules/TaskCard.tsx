@@ -12,6 +12,7 @@ import TTask from "@/components/types/TTask";
 import { daysLeft, formatDate } from "@/utils/dateHelpers";
 import { getCategory } from "@/utils/taskHelpers";
 import { getPriorityClass } from "@/utils/priorityHelpers";
+import { routeUrl } from "@/utils/URouteUrl";
 
 // ============================================================================
 // Type Definitions
@@ -213,7 +214,7 @@ export default function TaskCard({
     if (onClick) {
       onClick(e);
     } else if (row?.id) {
-      router.push(`/dashboard/detail/${row.id}`);
+      router.push(`${routeUrl.task_details}?id=${row.id}`);
     }
   };
 

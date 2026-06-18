@@ -7,4 +7,8 @@ export const routeUrl = {
   // dashboard
   dashboard: "/dashboard",
   tasks: "/dashboard/tasks",
+  task_create: "/dashboard/tasks/create",
+  task_details: "/dashboard/tasks/details",
+  analytics: "/dashboard/analytics",
+  notification: "/dashboard/notification",
 };
