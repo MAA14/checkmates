@@ -5,6 +5,7 @@ import Button from "@/components/atoms/Button";
 import { login } from "@/utils/authService";
 import { useToast } from "@/hooks/useToast";
 import { routeUrl } from "@/utils/URouteUrl";
+import { supabase } from "@/libs/supabase";
 
 /**
  * Organism: Login Form Component
@@ -40,35 +41,31 @@ export default function LoginForm() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (!validateForm()) return;
-
-    setLoading(true);
     try {
-      const response = await login({
-        username: formData.username,
+      setLoading(true);
+      const fakeEmail = `${formData.username}@checkmates.local`;
+      const { error } = await supabase.auth.signInWithPassword({
+        email: fakeEmail,
         password: formData.password,
       });
-
-      if (response.success) {
-        showToast("Login berhasil", "success");
-        // Store auth token in cookie (handled by backend)
-        setTimeout(() => router.push(routeUrl.dashboard), 1500);
-      } else {
-        showToast(response.message, "error");
+      if (error) {
+        showToast("Username atau password salah", "error");
+        return;
       }
+      showToast("Login berhasil", "success");
+      setTimeout(() => router.push(routeUrl.dashboard), 2000);
     } catch (err) {
-      showToast("Terjadi kesalahan", "error");
       console.error(err);
+      showToast("Terjadi kesalahan", "error");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleLogin} className="space-y-5">
       <Input
         type="text"
         name="username"

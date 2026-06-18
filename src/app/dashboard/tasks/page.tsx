@@ -213,7 +213,9 @@ export default function Tasks() {
               key={row.id}
               row={row}
               mode="kegiatan"
-              onClick={() => router.push(`${routeUrl.task_details}?id=${row.id}`)}
+              onClick={() =>
+                router.push(`${routeUrl.task_details}?id=${row.id}`)
+              }
             />
           ))}
       </div>
