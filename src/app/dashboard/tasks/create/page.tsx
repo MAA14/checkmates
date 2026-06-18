@@ -186,7 +186,7 @@ export default function InputKegiatan() {
         </div>
 
         {/* Form card */}
-        <div className="ik-card">
+        <div className="ik-card w-full">
           <form onSubmit={handleSubmit} noValidate>
             {/* Nama Kegiatan */}
             <div className="ik-field">

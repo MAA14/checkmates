@@ -1,1 +1,1 @@
-export const mascotSrc = "/assets/horse-mascot.svg";
+export const mascotSrc = "/assets/logo.jpeg";
