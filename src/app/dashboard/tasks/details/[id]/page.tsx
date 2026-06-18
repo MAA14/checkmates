@@ -95,8 +95,6 @@ export default function DetailKegiatan({
           fetchTaskSelections(id),
         ]);
         if (!alive) return;
-        console.log("Task Data:", taskData);
-        console.log("Selections Data:", selData);
         setTask(taskData);
         setSelections(selData);
       } catch (err: any) {

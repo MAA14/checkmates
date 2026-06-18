@@ -214,7 +214,7 @@ export default function TaskCard({
     if (onClick) {
       onClick(e);
     } else if (row?.id) {
-      router.push(`${routeUrl.task_details}?id=${row.id}`);
+      router.push(`${routeUrl.task_details}/${row.id}`);
     }
   };
 

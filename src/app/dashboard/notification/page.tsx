@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/libs/supabase";
 import {
   CheckCheck,
   Circle,
@@ -12,102 +10,56 @@ import {
   SlidersHorizontal,
   TriangleAlert,
 } from "lucide-react";
-import { daysLeft, timeAgo } from "@/utils/dateHelpers";
-import {
-  getPriorityClass,
-  NOTIF_HIGH_PRIORITY,
-  NOTIF_VERY_HIGH_PRIORITY,
-} from "@/utils/priorityHelpers";
+import { timeAgo } from "@/utils/dateHelpers";
 import TTask from "@/components/types/TTask";
 import TNotification from "./types/TNotification";
+import { fetchNotifications } from "@/services/taskService";
+import {
+  markNotificationAsRead,
+  getReadNotifications,
+} from "@/utils/notificationHelpers";
 
-function generateNotifications(rows: TTask[]) {
-  const notifs: TNotification[] = [];
-
-  rows.forEach((row) => {
-    const left = daysLeft(row.deadline_at);
-    const score = Number(row.total_priority_score || 0);
-    const pc = getPriorityClass(score, {
-      veryHigh: NOTIF_VERY_HIGH_PRIORITY,
-      high: NOTIF_HIGH_PRIORITY,
-      medium: 0,
-    });
-    const title = row.judul;
-
-    if (row.status === "selesai") return;
-
-    if (left !== null && left < 0) {
-      notifs.push({
-        id: `overdue-${row.id}`,
-        type: "overdue",
-        title: "Kegiatan Terlambat",
-        message: `"${title}" sudah melewati deadline ${Math.abs(left)} hari yang lalu.`,
-        tag: "TERLAMBAT",
-        icon: <Clock size={18} />,
-        date: row.deadline_at,
-        isNew: Math.abs(left) <= 1,
-      });
-      return;
-    }
-
-    if (left !== null && left <= 1) {
-      notifs.push({
-        id: `urgent-${row.id}`,
-        type: "urgent",
-        title: "Deadline Hari Ini!",
-        message: `"${title}" harus diselesaikan hari ini. Prioritas: ${pc}.`,
-        tag: "MENDESAK",
-        icon: <Siren size={18} />,
-        date: row.deadline_at,
-        isNew: true,
-      });
-      return;
-    }
-
-    if (left !== null && left <= 3) {
-      notifs.push({
-        id: `soon-${row.id}`,
-        type: "soon",
-        title: "Deadline Mendekat",
-        message: `"${title}" akan jatuh tempo dalam ${left} hari.`,
-        tag: "SEGERA",
-        icon: <TriangleAlert size={18} />,
-        date: row.deadline_at,
-        isNew: false,
-      });
-      return;
-    }
-
-    if (score > 74) {
-      notifs.push({
-        id: `priority-${row.id}`,
-        type: "priority",
-        title: "Kegiatan Sangat Prioritas",
-        message: `"${title}" memiliki skor prioritas tinggi (${score}). Sisa ${left} hari.`,
-        tag: "PRIORITAS",
-        icon: <Circle size={18} className="fill-current" />,
-        date: row.created_at,
-        isNew: false,
-      });
-    }
-  });
-
-  return notifs.sort((a, b) => {
-    if (a.isNew !== b.isNew) return a.isNew ? -1 : 1;
-    const diffTime = new Date(a.date).getTime() - new Date(b.date).getTime();
-    return diffTime;
-  });
+interface NotificationData {
+  id: string;
+  type: "overdue" | "urgent" | "soon" | "priority";
+  title: string;
+  message: string;
+  tag: string;
+  date: string;
+  isNew: boolean;
 }
 
-function NotifCard({
-  notif,
-  isRead,
-  onRead,
-}: {
-  notif: TNotification;
+interface NotifCardProps {
+  notif: NotificationData;
   isRead: boolean;
   onRead: (id: string) => void;
-}) {
+  icon: React.ReactNode;
+}
+
+interface FilterChipProps {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}
+
+function getNotificationIcon(
+  type: "overdue" | "urgent" | "soon" | "priority",
+): React.ReactNode {
+  switch (type) {
+    case "overdue":
+      return <Clock size={18} />;
+    case "urgent":
+      return <Siren size={18} />;
+    case "soon":
+      return <TriangleAlert size={18} />;
+    case "priority":
+      return <Circle size={18} className="fill-current" />;
+    default:
+      return null;
+  }
+}
+
+function NotifCard({ notif, isRead, onRead, icon }: NotifCardProps) {
   const badgeKey =
     notif.type === "overdue"
       ? "terlambat"
@@ -122,7 +74,7 @@ function NotifCard({
       className={`notification-card glass-card ${notif.type} ${isRead ? "read" : "unread"}`}
     >
       <button type="button" className="notification-main">
-        <div className="notification-piece">{notif.icon}</div>
+        <div className="notification-piece">{icon}</div>
         <div>
           <h3>
             {notif.title}
@@ -143,15 +95,7 @@ function NotifCard({
   );
 }
 
-function FilterChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
+function FilterChip({ label, active, onClick }: FilterChipProps) {
   return (
     <button
       onClick={onClick}
@@ -172,48 +116,39 @@ const FILTERS = [
 ];
 
 export default function Notifikasi() {
-  const [rows, setRows] = useState<TTask[]>([]);
+  const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeFilter, setActiveFilter] = useState("semua");
   const [showFilter, setShowFilter] = useState(false);
-  const [readIds, setReadIds] = useState(() => {
-    try {
-      return new Set(
-        JSON.parse(localStorage.getItem("checkmates_read_notifs") || "[]"),
-      );
-    } catch {
-      return new Set();
-    }
-  });
+  const [readIds, setReadIds] = useState<Set<string>>(() =>
+    getReadNotifications(),
+  );
 
   useEffect(() => {
     let alive = true;
-    const load = async () => {
-      setLoading(true);
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
-      if (!user) return;
 
-      const { data, error } = await supabase
-        .from("view_priority_tasks")
-        .select("*")
-        .eq("user_id", user.id);
+    const load = async (): Promise<void> => {
+      setLoading(true);
+      const result = await fetchNotifications();
 
       if (!alive) return;
-      if (error) {
-        setError(error.message);
-        setRows([]);
-      } else setRows(data || []);
+
+      if (result.success && result.data) {
+        setNotifications(result.data as NotificationData[]);
+      } else {
+        setError(result.message || "Gagal mengambil notifikasi");
+        setNotifications([]);
+      }
+
       setLoading(false);
     };
+
     load();
     return () => {
       alive = false;
     };
   }, []);
-
-  const notifications = useMemo(() => generateNotifications(rows), [rows]);
 
   const filtered = useMemo(() => {
     if (activeFilter === "semua") return notifications;
@@ -225,19 +160,19 @@ export default function Notifikasi() {
     [notifications, readIds],
   );
 
-  const markRead = (id: string) => {
+  const markRead = (id: string): void => {
     setReadIds((prev) => {
       const next = new Set(prev);
       next.add(id);
-      localStorage.setItem("checkmates_read_notifs", JSON.stringify([...next]));
+      markNotificationAsRead(id);
       return next;
     });
   };
 
-  const markAllRead = () => {
+  const markAllRead = (): void => {
     const allIds = notifications.map((n) => n.id);
     setReadIds(new Set(allIds));
-    localStorage.setItem("checkmates_read_notifs", JSON.stringify(allIds));
+    allIds.forEach(markNotificationAsRead);
   };
 
   const todayNotifs = filtered.filter((n) => n.isNew);
@@ -339,6 +274,7 @@ export default function Notifikasi() {
                 notif={n}
                 isRead={readIds.has(n.id)}
                 onRead={markRead}
+                icon={getNotificationIcon(n.type)}
               />
             ))}
           </div>
@@ -355,6 +291,7 @@ export default function Notifikasi() {
                 notif={n}
                 isRead={readIds.has(n.id)}
                 onRead={markRead}
+                icon={getNotificationIcon(n.type)}
               />
             ))}
           </div>

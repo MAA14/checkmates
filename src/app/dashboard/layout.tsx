@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-// import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { supabase } from "../../libs/supabase";
 import { CalendarCheck, LogOut, Menu } from "lucide-react";
 import BackgroundEffects from "../../components/molecules/BackgroundEffects";
 import Link from "next/link";
@@ -11,87 +9,62 @@ import TTask from "@/components/types/TTask";
 import { usePathname, useRouter } from "next/navigation";
 import { mascotSrc } from "@/utils/UImageSrc";
 import { routeUrl } from "@/utils/URouteUrl";
+import { fetchUserProfile } from "@/services/dashboardService";
+import { countUnread } from "@/utils/notificationHelpers";
+import { logout } from "@/utils/authService";
 
-function daysLeft(deadline: string) {
-  if (!deadline) return null;
-  const d = new Date(deadline);
-  const now = new Date();
-  const diff = d.setHours(0, 0, 0, 0) - now.setHours(0, 0, 0, 0);
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-
-function countUnread(rows: TTask[]) {
-  let readIds;
-  try {
-    readIds = new Set(
-      JSON.parse(localStorage.getItem("checkmates_read_notifs") || "[]"),
-    );
-  } catch {
-    readIds = new Set();
-  }
-
-  let count = 0;
-  rows.forEach((row) => {
-    if (row.status === "selesai") return;
-
-    const left = daysLeft(row.deadline_at);
-    const score = Number(row.total_priority_score || 0);
-    let id = null;
-
-    if (left !== null && left < 0) id = `overdue-${row.id}`;
-    else if (left !== null && left <= 1) id = `urgent-${row.id}`;
-    else if (left !== null && left <= 3) id = `soon-${row.id}`;
-    else if (score > 74) id = `priority-${row.id}`;
-
-    if (id && !readIds.has(id)) count++;
-  });
-
-  return count;
-}
-
-export default function DashboardLayout({
-  children,
-}: {
+interface DashboardLayoutProps {
   children: React.ReactNode;
-}) {
+}
+
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [userName, setUserName] = useState("User");
   const [userEmail, setUserEmail] = useState("");
-  const [rows, setRows] = useState<TTask[] | []>([]);
+  const [rows, setRows] = useState<TTask[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(false);
 
   useEffect(() => {
     let alive = true;
 
-    const load = async () => {
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
+    const loadUserData = async (): Promise<void> => {
+      setLoading(true);
+      setAuthError(false);
+      try {
+        // Fetch user profile from backend
+        const profileResult = await fetchUserProfile();
 
-      if (!user) {
-        router.push(routeUrl.login);
-        return;
+        if (!alive) return;
+
+        if (profileResult.success && profileResult.data) {
+          setUserName(profileResult.data.username || "User");
+          setUserEmail(profileResult.data.email || "");
+          setAuthError(false);
+        } else {
+          // If unauthorized, redirect to login
+          if (profileResult.message === "Unauthorized") {
+            setAuthError(true);
+            router.push(routeUrl.login);
+          } else {
+            // For other errors, keep current state and retry
+            console.error("Profile fetch error:", profileResult.message);
+          }
+        }
+      } catch (error) {
+        if (alive) {
+          console.error("Error loading user data:", error);
+          setAuthError(true);
+          router.push(routeUrl.login);
+        }
+      } finally {
+        if (alive) setLoading(false);
       }
-
-      if (alive) setUserEmail(user.email || "");
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (alive && profileData?.username) setUserName(profileData.username);
-
-      const { data } = await supabase
-        .from("view_priority_tasks")
-        .select("id, judul, status, deadline_at, total_priority_score")
-        .eq("user_id", user.id);
-
-      if (alive) setRows(data as TTask[] | []);
     };
 
-    load();
+    loadUserData();
 
     return () => {
       alive = false;
@@ -100,9 +73,11 @@ export default function DashboardLayout({
 
   const unreadCount = useMemo(() => countUnread(rows), [rows]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push(routeUrl.login);
+  const handleLogout = async (): Promise<void> => {
+    const result = await logout();
+    if (result.success) {
+      router.push(routeUrl.login);
+    }
   };
 
   const navItems = [
