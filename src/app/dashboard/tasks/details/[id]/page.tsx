@@ -201,29 +201,6 @@ export default function DetailKegiatan({
           </div>
         </div>
 
-        {/* ── Stats row ── */}
-        <div className="dk-stats">
-          <StatCard
-            label="DAMPAK NILAI"
-            value={dampakNilai?.opsi_nilai_bobot_variabel?.label ?? "-"}
-          />
-          <StatCard
-            label="TINGKAT KESULITAN"
-            value={tingkatKesulitan?.opsi_nilai_bobot_variabel?.label ?? "-"}
-          />
-          <StatCard
-            label="STATUS"
-            value={getStatusLabel(task.status)}
-            valueStyle={
-              isSelesai
-                ? { color: "#10b981" }
-                : task.status === "terlambat"
-                  ? { color: "#ef4444" }
-                  : { color: "#1a237e" }
-            }
-          />
-        </div>
-
         {/* ── All priority variables ── */}
         <div className="dk-section">
           <h2 className="dk-section-title">
@@ -247,6 +224,22 @@ export default function DetailKegiatan({
                 style={{ color: theme.bg, fontWeight: 800 }}
               >
                 {priorityScore.toFixed(1)}
+              </span>
+            </div>
+            <div className="dk-var-chip dk-var-score">
+              <span className="dk-var-name">Status</span>
+              <span
+                className="dk-var-value"
+                style={{
+                  color: isSelesai
+                    ? "#10b981"
+                    : task.status === "terlambat"
+                      ? "#ef4444"
+                      : "#1a237e",
+                  fontWeight: 800,
+                }}
+              >
+                {getStatusLabel(task.status)}
               </span>
             </div>
           </div>

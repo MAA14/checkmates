@@ -24,7 +24,7 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8">
         {/* Auth Header with Icon */}
-        <AuthHeader title="Login" description="Masuk ke akun SINIGAS">
+        <AuthHeader title="Login" description="Masuk ke akun Checkmates">
           <LogIn size={36} />
         </AuthHeader>
 

@@ -24,7 +24,7 @@ export default function RegisterPage() {
 
       <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8">
         {/* Auth Header with Icon */}
-        <AuthHeader title="Daftar Akun" description="Buat akun SINIGAS">
+        <AuthHeader title="Daftar Akun" description="Buat akun Checkmates">
           <UserPlus size={36} />
         </AuthHeader>
 

@@ -283,10 +283,10 @@ export default function TaskCard({
       </button>
 
       {/* Side Section */}
-      <div className="item-side">
+      <div className="flex item-side flex-wrap max-sm:hidden">
         {/* Days Remaining Box */}
         {showDayBox && (
-          <div className={dayboxClass}>
+          <div className={`${dayboxClass}`}>
             {category === "selesai" && !isPriorityMode ? (
               <>
                 <CheckCircle2 size={28} strokeWidth={2.6} />
